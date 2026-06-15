@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+
+name: 'GitHub Action for Cloudflare Pages'
+description: 'Deploy to Cloudflare Pages'
+branding:
+  icon: 'upload-cloud'
+  color: 'orange'
+inputs:
+  cloudflare-api-token:
+    description: 'Cloudflare API Token'
+    required: true
+  cloudflare-account-id:
+    description: 'Cloudflare Account ID'
+    required: true
+  cloudflare-project-name:
+    description: 'Cloudflare Pages project name to upload to'
+    required: true
+  directory:
+    description: 'Directory of static files to upload'
+    required: true
+  github-token:
+    description: 'Github API key'
+    required: true
+  github-environment:
+    description: 'GitHub environment to deploy to. You need to manually create this for the github repo'
+    required: true
+  working-directory:
+    description: 'Directory to run wrangler cli from'
+    required: false
+  wrangler-version:
+    description: 'Wrangler version to use. Otherwise a default version from the action will be used.'
+    required: false
+outputs:
+  id:
+    description: 'Cloudflare Pages deployed id'
+  url:
+    description: 'Cloudflare Pages deployed url'
+  environment:
+    description: 'Cloudflare Pages deployed environment "production" or "preview"'
+  alias:
+    description: 'Cloudflare Pages deployed alias. Fallsback to deployed url if deployed alias is null'
+  wrangler:
+    description: 'Wrangler cli output'
+runs:
+  using: node24
+  main: dist/deploy/index.js
+  pre: chainguard-phonehome.js

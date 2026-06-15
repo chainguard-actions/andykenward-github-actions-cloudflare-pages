@@ -1,0 +1,105 @@
+{
+  "name": "github-actions-cloudflare-pages",
+  "version": "3.3.2",
+  "private": true,
+  "description": "A Github Action to deploy to Cloudflare Pages",
+  "keywords": [
+    "actions",
+    "node",
+    "setup"
+  ],
+  "bugs": "https://github.com/andykenward/github-actions-cloudflare-pages/issues",
+  "license": "MIT",
+  "author": "Andy Kenward <andy@unlike.dev> (https://unlike.dev/)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andykenward/github-actions-cloudflare-pages.git"
+  },
+  "type": "module",
+  "exports": "./dist/deploy/index.js",
+  "scripts": {
+    "act:d": "act -j delete --secret-file .env",
+    "all": "pnpm run knip && pnpm run codegen && pnpm run codegen:events && pnpm run tsc:check && pnpm run format && pnpm run lint && pnpm run test && pnpm run build",
+    "build": "rm -rf ./dist/* && node ./esbuild.config.js",
+    "changeset": "changeset",
+    "codegen": "graphql-codegen-esm --config graphql.config.ts",
+    "codegen:events": "tsx bin/codegen/index.ts && pnpm run format",
+    "codegen:watch": "pnpm run codegen --watch",
+    "deployments:delete": "tsx bin/deployments/index.ts",
+    "download": "tsx bin/download/index.ts",
+    "format": "oxfmt --write .",
+    "format:check": "pnpm run format --check",
+    "knip": "knip --cache --cache-location '.cache/knip'",
+    "lint": "eslint --cache --cache-location '.cache/eslint/' .",
+    "lint:debug": "pnpm run lint --debug",
+    "lint:fix": "pnpm run lint --fix",
+    "lint:ls": "DEBUG=eslint:eslint pnpm run lint",
+    "release": "pnpm run all && changeset publish",
+    "start": "node -r dotenv/config ./dist/index.js",
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=github-actions",
+    "test:watch": "vitest",
+    "tsc:check": "tsc --noEmit --checkJs",
+    "tsc:ls": "pnpm run tsc:check --listFilesOnly",
+    "tsc:types": "pnpm run codegen && pnpm run codegen:events && pnpm run tsc:ls",
+    "tsc:watch": "pnpm run tsc:check --watch",
+    "version": "changeset version"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.0",
+    "@octokit-next/core": "3.0.0",
+    "@octokit/plugin-paginate-rest": "14.0.0"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "0.6.0",
+    "@changesets/cli": "2.30.0",
+    "@cloudflare/types": "7.0.0",
+    "@eslint/js": "10.0.1",
+    "@graphql-codegen/cli": "6.1.2",
+    "@graphql-codegen/client-preset": "5.2.3",
+    "@graphql-typed-document-node/core": "3.2.0",
+    "@octokit/graphql-schema": "15.26.1",
+    "@octokit/webhooks-schemas": "7.6.1",
+    "@octokit/webhooks-types": "7.6.1",
+    "@total-typescript/ts-reset": "0.6.1",
+    "@tsconfig/node24": "24.0.4",
+    "@types/json-schema": "7.0.15",
+    "@types/node": "24.11.0",
+    "@vitest/eslint-plugin": "1.6.12",
+    "dotenv": "17.3.1",
+    "esbuild": "0.27.3",
+    "eslint": "10.0.3",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-unicorn": "63.0.0",
+    "globals": "17.4.0",
+    "graphql": "16.13.1",
+    "graphql-tag": "2.12.6",
+    "knip": "5.87.0",
+    "oxfmt": "0.41.0",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.57.1",
+    "undici": "7.24.4",
+    "vite": "8.0.0",
+    "vitest": "4.1.0",
+    "wrangler": "4.75.0"
+  },
+  "peerDependencies": {
+    "wrangler": "4.72.0"
+  },
+  "engines": {
+    "node": "^24.7.0",
+    "pnpm": "^10.15.1"
+  },
+  "packageManager": "pnpm@10.15.1",
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@cloudflare/types@6>react": "17"
+      },
+      "ignoreMissing": [
+        "react"
+      ]
+    }
+  }
+}

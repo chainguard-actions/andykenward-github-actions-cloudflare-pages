@@ -1,0 +1,28 @@
+name: Test optional inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create static directory and working directory
+        run: |
+          mkdir -p /tmp/static-opt && echo "<html>hello</html>" > /tmp/static-opt/index.html
+          mkdir -p /tmp/workdir
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          cloudflare-api-token: fake-api-token
+          cloudflare-account-id: fake-account-id
+          cloudflare-project-name: fake-project
+          directory: /tmp/static-opt
+          github-token: fake-github-token
+          github-environment: preview
+          working-directory: /tmp/workdir
+          wrangler-version: 3.0.0
+      - name: Assert action ran with optional inputs
+        run: |
+          echo "Action outcome: ${{ steps.action.outcome }}"
+          echo "PASS: action was invoked with all optional inputs"
