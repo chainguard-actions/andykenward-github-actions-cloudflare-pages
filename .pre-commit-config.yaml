@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://json.schemastore.org/pre-commit-config.json
+
+exclude: __generated__|.changeset|pnpm-lock.yaml|dist
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+  - repo: https://gitlab.com/bmares/check-json5
+    rev: v1.0.1
+    hooks:
+      - id: check-json5

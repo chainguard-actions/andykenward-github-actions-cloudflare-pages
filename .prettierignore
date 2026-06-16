@@ -1,0 +1,9 @@
+dist/
+node_modules/
+pnpm-lock.yaml
+example/
+payload-examples/
+tsconfig.tsnode.json
+__generated__/
+.cache
+.changeset/*.md

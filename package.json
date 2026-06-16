@@ -1,0 +1,107 @@
+{
+  "name": "github-actions-cloudflare-pages",
+  "version": "3.3.0",
+  "private": true,
+  "description": "A Github Action to deploy to Cloudflare Pages",
+  "keywords": [
+    "actions",
+    "node",
+    "setup"
+  ],
+  "bugs": "https://github.com/andykenward/github-actions-cloudflare-pages/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andykenward/github-actions-cloudflare-pages.git"
+  },
+  "license": "MIT",
+  "author": "Andy Kenward <andy@unlike.dev> (https://unlike.dev/)",
+  "type": "module",
+  "exports": "./dist/deploy/index.js",
+  "scripts": {
+    "act:d": "act -j delete --secret-file .env",
+    "all": "pnpm run knip && pnpm run codegen && pnpm run codegen:events && pnpm run tsc:check && pnpm run format && pnpm run lint && pnpm run test && pnpm run build",
+    "build": "rm -rf ./dist/* && node ./esbuild.config.js",
+    "changeset": "changeset",
+    "codegen": "graphql-codegen-esm --config graphql.config.ts",
+    "codegen:events": "tsx bin/codegen/index.ts",
+    "codegen:watch": "pnpm run codegen --watch",
+    "deployments:delete": "tsx bin/deployments/index.ts",
+    "download": "tsx bin/download/index.ts",
+    "format": "prettier --write . --cache --cache-location '.cache/prettier/'",
+    "format:check": "pnpm run format --check",
+    "knip": "knip --cache --cache-location '.cache/knip'",
+    "lint": "eslint --cache --cache-location '.cache/eslint/' .",
+    "lint:debug": "pnpm run lint --debug",
+    "lint:fix": "pnpm run lint --fix",
+    "lint:ls": "DEBUG=eslint:eslint pnpm run lint",
+    "release": "pnpm run all && changeset publish",
+    "start": "node -r dotenv/config ./dist/index.js",
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=github-actions",
+    "test:watch": "vitest",
+    "tsc:check": "tsc --noEmit --checkJs",
+    "tsc:ls": "pnpm run tsc:check --listFilesOnly",
+    "tsc:types": "pnpm run codegen && pnpm run codegen:events && pnpm run tsc:ls",
+    "tsc:watch": "pnpm run tsc:check --watch",
+    "version": "changeset version"
+  },
+  "dependencies": {
+    "@actions/core": "1.11.1",
+    "@octokit-next/core": "3.0.0",
+    "@octokit/plugin-paginate-rest": "13.1.1"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "0.5.2",
+    "@changesets/cli": "2.29.8",
+    "@cloudflare/types": "7.0.0",
+    "@eslint/js": "9.39.1",
+    "@graphql-codegen/cli": "6.1.0",
+    "@graphql-codegen/client-preset": "5.2.1",
+    "@graphql-typed-document-node/core": "3.2.0",
+    "@ianvs/prettier-plugin-sort-imports": "4.7.0",
+    "@octokit/graphql-schema": "15.26.0",
+    "@octokit/webhooks-schemas": "7.6.1",
+    "@octokit/webhooks-types": "7.6.1",
+    "@total-typescript/ts-reset": "0.6.1",
+    "@tsconfig/node24": "24.0.3",
+    "@types/json-schema": "7.0.15",
+    "@types/node": "24.10.1",
+    "@vitest/eslint-plugin": "1.5.1",
+    "dotenv": "17.2.2",
+    "esbuild": "0.25.9",
+    "eslint": "9.39.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-unicorn": "62.0.0",
+    "globals": "16.5.0",
+    "graphql": "16.12.0",
+    "graphql-tag": "2.12.6",
+    "knip": "5.71.0",
+    "prettier": "3.7.3",
+    "prettier-plugin-packagejson": "2.5.20",
+    "tsx": "4.20.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.48.0",
+    "undici": "7.18.2",
+    "vite": "7.2.6",
+    "vitest": "4.0.15",
+    "wrangler": "4.59.1"
+  },
+  "peerDependencies": {
+    "wrangler": "4.59.1"
+  },
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": "^24.7.0",
+    "pnpm": "^10.15.1"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@cloudflare/types@6>react": "17"
+      },
+      "ignoreMissing": [
+        "react"
+      ]
+    }
+  }
+}
