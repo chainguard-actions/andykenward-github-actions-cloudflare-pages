@@ -8,6 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
+| v3.3.0 | [`v3.3.0`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.3.0) | [`e65e633`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/e65e633cf2fa51d34ecd423be3a4eab0bca53ddf) |
 | v3.3.2 | [`v3.3.2`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.3.2) | [`1465d3f`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/1465d3fcd395b60fc734b2d397699a3ff3f4b834) |
 
 ## Privacy
