@@ -1,0 +1,27 @@
+{
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "files.associations": {
+    "action.yml": "yaml"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/*.code-search": true,
+    "**/dist": true,
+    "**/example": true,
+    "**/__generated__/payloads": true,
+    "pnpm-lock.yaml": true
+  },
+  "npm.packageManager": "pnpm",
+  "js/ts.preferences.importModuleSpecifierEnding": "js",
+  "js/ts.preferences.importModuleSpecifier": "shortest",
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "editor.quickSuggestions": {
+    "other": false,
+    "comments": false,
+    "strings": false
+  },
+  "editor.suggest.showKeywords": false,
+  "oxc.enable.oxfmt": true,
+  "oxc.enable.oxlint": true
+}

@@ -1,15 +1,237 @@
-# andykenward/github-actions-cloudflare-pages
+[![test](https://github.com/andykenward/github-actions-cloudflare-pages/actions/workflows/test.yml/badge.svg)](https://github.com/andykenward/github-actions-cloudflare-pages/actions/workflows/test.yml) [![Check dist/](https://github.com/andykenward/github-actions-cloudflare-pages/actions/workflows/check-dist.yml/badge.svg)](https://github.com/andykenward/github-actions-cloudflare-pages/actions/workflows/check-dist.yml) [![release](https://github.com/andykenward/github-actions-cloudflare-pages/actions/workflows/release.yml/badge.svg)](https://github.com/andykenward/github-actions-cloudflare-pages/actions/workflows/release.yml) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/andykenward/github-actions-cloudflare-pages/main.svg)](https://results.pre-commit.ci/latest/github/andykenward/github-actions-cloudflare-pages/main)
 
-Deploy to Cloudflare Pages
+# GitHub Action Cloudflare Pages
 
-Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/andykenward/github-actions-cloudflare-pages](https://github.com/andykenward/github-actions-cloudflare-pages).
+This action deploys your build output to [Cloudflare Pages] using [Wrangler]. [GitHub Environments] and [GitHub Deployment] are used to keep track of the [Cloudflare Pages] deployments.
 
-## Versions
+When used in context of a [pull request], the action will create a deployment for the pull request and add a comment with the URL of the deployment.
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v3.3.0 | [`v3.3.0`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.3.0) | [`e65e633`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/e65e633cf2fa51d34ecd423be3a4eab0bca53ddf) |
-| v3.3.2 | [`v3.3.2`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.3.2) | [`1465d3f`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/1465d3fcd395b60fc734b2d397699a3ff3f4b834) |
+- Deploy to [Cloudflare Pages].
+- Use [GitHub Environments] & [GitHub Deployment].
+- Comment on pull requests with deployment URL.
+- Delete deployments using [`andykenward/github-actions-cloudflare-pages/delete`](./delete/README.md)
+- Define a `working-directory` input for the `wrangler` cli command to execute from. Useful for monorepos where the `functions` folder may not be in the root directory.
+
+## GitHub Environments - **(Required)**
+
+> **This GitHub Action doesn't create the required [GitHub Environments], see below for more information.**
+
+The GitHub Action uses [GitHub Environments] for the deployments. **This GitHub Action doesn't create [GitHub Environments]**, this is due to the required permission of `administration:write` by the GitHub API, you will have to do this manually, see [Creating an environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment).
+
+For example manually create two GitHub Environments called "production" & "preview". Then you can define them in the workflow yaml step for `github-environment` as the below example. The check for `github.ref == 'refs/heads/main'` is used to switch between these two GitHub Environments, `main` Git branch for `"production"` and any other branch will use `"preview"`.
+
+```yaml
+github-environment: ${{ (github.ref == 'refs/heads/main' && 'production') || 'preview' }}
+```
+
+## Upgrading
+
+If you have previous deployments using an older version of this GitHub Action please see the [CHANGELOG.md](./CHANGELOG.md) for breaking changes.
+
+## Permissions
+
+The [permissions] required for this GitHub Action when using the created [`GITHUB_TOKEN`] by the workflow for the `github-token` field.
+
+```yaml
+permissions:
+  actions: read # Only required for a private GitHub Repo.
+  contents: read
+  deployments: write
+  pull-requests: write
+```
+
+## Inputs
+
+```yaml
+cloudflare-api-token:
+  description: 'Cloudflare API Token'
+  required: true
+cloudflare-account-id:
+  description: 'Cloudflare Account ID'
+  required: true
+cloudflare-project-name:
+  description: 'Cloudflare Pages project to upload to'
+  required: true
+directory:
+  description: 'Directory of static files to upload'
+  required: true
+github-token:
+  description: 'Github API key, make sure to add the required permissions for this action.'
+  required: true
+github-environment:
+  description: 'GitHub environment to deploy to. You need to manually create this for the github repo'
+  required: true
+pr-number:
+  description: 'GitHub pull request number to comment on. If not set, the action auto-detects from the event payload.'
+  required: false
+working-directory:
+  description: 'Directory to run wrangler cli from'
+  required: false
+wrangler-version:
+  description: 'Wrangler version to use. Otherwise a default version from the action will be used.'
+  required: false
+```
+
+## Outputs
+
+```yaml
+id:
+  description: 'Cloudflare Pages deployed id'
+  value: ${{ steps.action.outputs.id }}
+url:
+  description: 'Cloudflare Pages deployed url'
+  value: ${{ steps.action.outputs.url }}
+environment:
+  description: 'Cloudflare Pages deployed environment "production" or "preview"'
+  value: ${{ steps.action.outputs.environment }}
+alias:
+  description: 'Cloudflare Pages deployed alias. Fallsback to deployed url if deployed alias is null'
+  value: ${{ steps.action.outputs.alias }}
+wrangler:
+  description: 'Wrangler cli output'
+  values: ${{ steps.action.outputs.wrangler }}
+```
+
+## Examples
+
+See the GitHub Workflow examples below or [.github/workflow-templates/deploy.yml](.github/workflow-templates/deploy.yml)
+
+### `push` & `pull_request`
+
+```yaml
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: 'Deployment'
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    permissions:
+      actions: read # Only required for private GitHub Repo
+      contents: read
+      deployments: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node_version: 20
+      - run: npm ci
+        run: npm run build
+      - name: Deploy to Cloudflare Pages
+        uses: andykenward/github-actions-cloudflare-pages@v3.0.0
+        id: pages
+        with:
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          cloudflare-project-name: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
+          directory: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-environment: ${{ vars.CLOUDFLARE_PROJECT_NAME }} ${{ (github.ref == 'refs/heads/main' && '(Production)') || '(Preview)' }}
+```
+
+### Fork pull requests with `workflow_run`
+
+When pull requests come from forks, the initial `pull_request` workflow may not have access to secrets. Use a second workflow triggered by `workflow_run` to deploy from the original repository context after approval, and set the `pr-number` input so the action can resolve the correct pull request to comment on.
+
+```yaml
+name: Deploy PR Preview (Fork Safe)
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: andykenward/github-actions-cloudflare-pages@v3.0.0
+        with:
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          cloudflare-project-name: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
+          directory: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-environment: preview
+          pr-number: # The PR number
+```
+
+This action supports the `workflow_run` event and will use the `workflow_run` head commit SHA and branch for deployment metadata.
+
+## Comment Example
+
+![pull request comment example](./docs/comment.png)
+
+## Deleting Deployments
+
+See the sub-action [`andykenward/github-actions-cloudflare-pages/delete`](./delete/README.md) about deleting deployments.
+
+### GitHub Deployment payload example response
+
+```json
+{
+  "payload": {
+    "cloudflare": {
+      "id": "123",
+      "projectName": "cloudflare-pages-project-name",
+      "accountId": "123"
+    },
+    "url": "https://example.com",
+    "commentId": "1234"
+  }
+}
+```
+
+## Debugging
+
+[Action Debugging](https://github.com/actions/toolkit/blob/main/docs/action-debugging.md#step-debug-logs)
+
+### How to Access Step Debug Logs
+
+This flag can be enabled by [setting the secret](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets#creating-encrypted-secrets) `ACTIONS_STEP_DEBUG` to `true`.
+
+All actions ran while this secret is enabled will show debug events in the [Downloaded Logs](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/managing-a-workflow-run#downloading-logs) and [Web Logs](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/managing-a-workflow-run#viewing-logs-to-diagnose-failures).
+
+### How to Access Runner Diagnostic Logs
+
+These log files are enabled by [setting the secret](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets#creating-encrypted-secrets) `ACTIONS_RUNNER_DEBUG` to `true`.
+
+All actions ran while this secret is enabled contain additional diagnostic log files in the `runner-diagnostic-logs` folder of the [log archive](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/managing-a-workflow-run#downloading-logs).
+
+## Docs
+
+- [GitHub Action Variables](https://docs.github.com/en/actions/learn-github-actions/variables)
+- [GitHub Action Default Environment variables](https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables)
+
+## ESM
+
+- [TypeScript ESM Node](https://www.typescriptlang.org/docs/handbook/esm-node.html)
+
+[Cloudflare Pages]: https://pages.cloudflare.com/
+[Wrangler]: https://developers.cloudflare.com/workers/wrangler/
+[pull request]: https://docs.github.com/en/pull-requests
+[GitHub Environments]: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment
+[GitHub Deployment]: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment
+[permissions]: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+[`GITHUB_TOKEN`]: https://docs.github.com/en/actions/security-guides/automatic-token-authentication
 
 ## Privacy
 
