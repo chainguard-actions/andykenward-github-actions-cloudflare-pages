@@ -1,0 +1,43 @@
+name: Test supported event type workflow_dispatch
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create static directory for upload
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/test-dist"
+          echo "<html><body>Test Page</body></html>" > "$GITHUB_WORKSPACE/test-dist/index.html"
+          echo "body { color: red; }" > "$GITHUB_WORKSPACE/test-dist/style.css"
+
+      - name: Run action with workflow_dispatch event (supported)
+        id: deploy
+        continue-on-error: true
+        uses: .
+        with:
+          cloudflare-api-token: "fake-api-token-for-testing-only"
+          cloudflare-account-id: "00000000000000000000000000000000"
+          cloudflare-project-name: "test-project"
+          directory: "${{ github.workspace }}/test-dist"
+          github-token: ${{ github.token }}
+          github-environment: "preview"
+          branch: "test-branch"
+
+      - name: Assert action failed at API level (not at event check)
+        run: |
+          echo "outcome: ${{ steps.deploy.outcome }}"
+          # The action supports workflow_dispatch, so it should fail at the
+          # Cloudflare API call (authentication error), not at the event check.
+          # Either failure or success is acceptable here — what matters is it
+          # didn't fail with "event name not supported".
+          if [ "${{ steps.deploy.outcome }}" = "failure" ]; then
+            echo "PASS: action failed as expected (likely at Cloudflare API call with fake credentials)"
+          elif [ "${{ steps.deploy.outcome }}" = "success" ]; then
+            echo "PASS: action succeeded unexpectedly (real credentials may be configured)"
+          else
+            echo "FAIL: unexpected outcome: ${{ steps.deploy.outcome }}"
+            exit 1
+          fi

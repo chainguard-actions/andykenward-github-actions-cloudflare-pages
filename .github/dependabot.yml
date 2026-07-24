@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: 'devcontainers'
+    directory: '/'
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      graphql:
+        patterns:
+          - '@graphql-codegen/*'
+          - '@graphql-typed-document-node/*'
+          - 'graphql'
+          - 'graphql-tag'
+      vitest:
+        patterns:
+          - '@vitest*'
+          - 'vitest'
+          - 'vite'
+      ox:
+        patterns:
+          - 'oxfmt'
+          - 'oxlint'
+          - 'oxlint-tsgolint'
+      octokit:
+        patterns:
+          - '@octokit/*'
+          - '@octokit-next/*'
+      cloudflare:
+        patterns:
+          - '@cloudflare/*'
+          - 'wrangler'
+      changesets:
+        patterns:
+          - '@changesets/*'

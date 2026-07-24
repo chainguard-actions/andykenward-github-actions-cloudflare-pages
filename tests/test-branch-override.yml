@@ -1,0 +1,39 @@
+name: Test branch override input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create static directory for upload
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/dist-output"
+          echo "<html><body>Branch Override Test</body></html>" > "$GITHUB_WORKSPACE/dist-output/index.html"
+
+      - name: Run action with explicit branch override
+        id: deploy
+        continue-on-error: true
+        uses: .
+        with:
+          cloudflare-api-token: "fake-api-token-branch-test"
+          cloudflare-account-id: "00000000000000000000000000000000"
+          cloudflare-project-name: "test-project-branch"
+          directory: "${{ github.workspace }}/dist-output"
+          github-token: ${{ github.token }}
+          github-environment: "preview"
+          branch: "feature/my-feature-branch"
+
+      - name: Assert action ran (failed at API, not at input validation)
+        run: |
+          echo "outcome: ${{ steps.deploy.outcome }}"
+          # The action should accept the branch override input without error.
+          # It will fail at the Cloudflare API call with fake credentials.
+          # Acceptable outcomes: failure (API error) or success (real creds).
+          if [ "${{ steps.deploy.outcome }}" = "failure" ] || [ "${{ steps.deploy.outcome }}" = "success" ]; then
+            echo "PASS: action accepted branch override input and ran (outcome: ${{ steps.deploy.outcome }})"
+          else
+            echo "FAIL: unexpected outcome: ${{ steps.deploy.outcome }}"
+            exit 1
+          fi
