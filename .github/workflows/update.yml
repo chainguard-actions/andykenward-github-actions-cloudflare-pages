@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: update
+on:
+  schedule:
+    - cron: '0 0 * * 0' # every sunday at midnight
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  download:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+      - uses: andykenward/github-actions/setup-pnpm@4975fa85f6e689743962bbb5dbac847aaa843edb #v3.0.1
+        with:
+          node-version: 24
+      - name: Cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v5.0.5
+        with:
+          path: |
+            ~/.cache/
+          key: ${{ runner.os }}-node-${{ hashFiles('**/pnpm-lock.yaml', '**/.oxlintrc.json', '**/.oxfmtrc.json', '**/tsconfig.json', '**/knip.json', '**/vitest.config.ts', '**/vitest.setup.ts') }}
+      - name: cli download payloads
+        run: pnpm run download
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 #v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update payloads'
+          sign-commits: true
+          branch: 'chore/update-payloads'
+          delete-branch: true
+          title: 'chore: update payloads'
+          body: |
+            This is an automated PR to update payloads.
+  types:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+      - uses: andykenward/github-actions/setup-pnpm@4975fa85f6e689743962bbb5dbac847aaa843edb #v3.0.1
+        with:
+          node-version: 24
+      - name: Cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v5.0.5
+        with:
+          path: |
+            ~/.cache/
+          key: ${{ runner.os }}-node-${{ hashFiles('**/pnpm-lock.yaml', '**/.oxlintrc.json', '**/.oxfmtrc.json', '**/tsconfig.json', '**/knip.json', '**/vitest.config.ts', '**/vitest.setup.ts') }}
+      - name: cli all
+        run: pnpm run tsc:types
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 #v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update types'
+          sign-commits: true
+          branch: 'chore/types'
+          delete-branch: true
+          title: 'chore: update types'
+          body: |
+            This is an automated PR to update generated types.

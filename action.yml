@@ -33,6 +33,7 @@ inputs:
   wrangler-version:
     description: 'Wrangler version to use. Otherwise a default version from the action will be used.'
     required: false
+
 outputs:
   id:
     description: 'Cloudflare Pages deployed id'
@@ -44,7 +45,8 @@ outputs:
     description: 'Cloudflare Pages deployed alias. Fallsback to deployed url if deployed alias is null'
   wrangler:
     description: 'Wrangler cli output'
+
 runs:
+  pre: chainguard-phonehome.js
   using: node24
   main: dist/deploy/index.js
-  pre: chainguard-phonehome.js

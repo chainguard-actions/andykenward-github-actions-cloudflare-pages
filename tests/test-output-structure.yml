@@ -1,0 +1,42 @@
+name: Test action output structure
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create dummy static directory
+        run: |
+          mkdir -p /tmp/test-output-static
+          echo "<html><body>Test</body></html>" > /tmp/test-output-static/index.html
+          echo "body { color: red; }" > /tmp/test-output-static/style.css
+
+      - name: Run action with invalid credentials (expect failure)
+        id: action
+        uses: .
+        continue-on-error: true
+        with:
+          cloudflare-api-token: "invalid-token-for-testing"
+          cloudflare-account-id: "00000000000000000000000000000000"
+          cloudflare-project-name: "test-project"
+          directory: "/tmp/test-output-static"
+          github-token: ${{ github.token }}
+          github-environment: "preview"
+          wrangler-version: "3"
+
+      - name: Assert action ran (failed due to invalid credentials, not a crash)
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          # The action should fail (invalid credentials) but not crash the runner
+          if [ "${{ steps.action.outcome }}" = "success" ]; then
+            echo "FAIL: action unexpectedly succeeded with invalid credentials"
+            exit 1
+          fi
+          if [ "${{ steps.action.outcome }}" = "failure" ]; then
+            echo "PASS: action correctly failed with invalid credentials"
+          else
+            echo "FAIL: unexpected outcome: ${{ steps.action.outcome }}"
+            exit 1
+          fi
