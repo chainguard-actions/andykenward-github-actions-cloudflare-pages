@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    cooldown:
+      default-days: 5
+  - package-ecosystem: 'devcontainers'
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: sunday
+    cooldown:
+      default-days: 5
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      graphql:
+        patterns:
+          - '@graphql-codegen/*'
+          - '@graphql-typed-document-node/*'
+          - 'graphql'
+          - 'graphql-tag'
+      vitest:
+        patterns:
+          - '@vitest*'
+          - 'vitest'
+          - 'vite'
+      eslint:
+        patterns:
+          - '@eslint/*'
+          - '@types/eslint'
+          - '@typescript-eslint/*'
+          - 'eslint'
+          - 'eslint-config-*'
+          - 'eslint-plugin-*'
+          - 'globals'
+          - 'typescript-eslint'
+      octokit:
+        patterns:
+          - '@octokit/*'
+          - '@octokit-next/*'
+      cloudflare:
+        patterns:
+          - '@cloudflare/*'
+          - 'wrangler'
+      changesets:
+        patterns:
+          - '@changesets/*'

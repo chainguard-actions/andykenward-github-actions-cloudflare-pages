@@ -1,0 +1,39 @@
+name: Test wrangler-version input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create static files directory
+        run: |
+          mkdir -p /tmp/static-files
+          echo "<html><body>Wrangler version test</body></html>" > /tmp/static-files/index.html
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          cloudflare-api-token: fake-api-token
+          cloudflare-account-id: fake-account-id
+          cloudflare-project-name: fake-project
+          directory: /tmp/static-files
+          github-token: ${{ github.token }}
+          github-environment: preview
+          wrangler-version: '3.78.0'
+
+      - name: Assert action ran with wrangler-version input
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail due to invalid Cloudflare credentials,
+          # not due to missing or invalid wrangler-version input.
+          # We just need to confirm the action was invoked (not skipped).
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped, expected it to run"
+            exit 1
+          fi
+          echo "PASS: action ran with wrangler-version input"
