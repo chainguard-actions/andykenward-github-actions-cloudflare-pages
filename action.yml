@@ -50,6 +50,5 @@ outputs:
     description: 'Wrangler cli output'
 
 runs:
-  pre: chainguard-phonehome.js
   using: node24
   main: dist/deploy/index.js
