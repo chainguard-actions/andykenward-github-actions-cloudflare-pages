@@ -1,0 +1,99 @@
+# andykenward/github-actions-cloudflare-pages/delete
+
+Delete deployments created by [`andykenward/github-actions-cloudflare-pages`](../README.md) for the current branch or pull request. When a [pull request] is closed, it removes that PR's deployments from [Cloudflare Pages] and [GitHub Deployment], along with the related comments.
+
+> [!IMPORTANT]
+> This action can only delete deployments and comments created by [`andykenward/github-actions-cloudflare-pages`](../README.md) — it relies on a specific payload stored in the GitHub deployment.
+
+**Features**
+
+- Delete the Cloudflare Pages deployment.
+- Mark the GitHub deployment status `INACTIVE` once the Cloudflare Pages deployment is deleted.
+- Delete the GitHub deployment and its related comment.
+- Delete up to 5 deployments at a time.
+- Write a [job summary] of what was deleted.
+- Fail the step if any deployment could not be deleted. The rest are still deleted, and the job summary lists which failed and why.
+
+## Quick start
+
+Run this on `pull_request: closed` to clean up a PR's preview deployments when it's closed or merged (this mirrors the official template in [.github/workflow-templates/delete.yml](../.github/workflow-templates/delete.yml)):
+
+```yaml
+name: Cloudflare Pages Delete
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+# Deny all permissions by default; grant only what each job needs.
+permissions: {}
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read # Only required for a private repo.
+      contents: read
+      deployments: write
+      pull-requests: write
+    steps:
+      - name: Delete Cloudflare Pages deployment
+        uses: andykenward/github-actions-cloudflare-pages/delete@46d86e1caa6b86365a41d335db65a6936a1beb39 #v3.5.0
+        with:
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## Permissions
+
+When using the workflow's built-in [`GITHUB_TOKEN`] for the `github-token` input, grant these [permissions]:
+
+```yaml
+permissions:
+  actions: read # Only required for a private GitHub repo.
+  contents: read
+  deployments: write
+  pull-requests: write
+```
+
+## Inputs
+
+| Input                  | Required | Default | Description                                                                                                                              |
+| ---------------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare-api-token` | yes      | —       | Cloudflare API token with the **Cloudflare Pages: Edit** permission. Masked in logs, even when it doesn't come from `secrets`.           |
+| `github-token`         | yes      | —       | GitHub token with the [required permissions](#permissions). Masked in logs, even when it doesn't come from `secrets`.                    |
+| `github-environment`   | no       | —       | GitHub environment to delete deployments from. Leave undefined to delete all deployments referencing the current branch or pull_request. |
+| `keep-latest`          | no       | `0`     | Number of the newest deployments to keep, up to 10000. `0` deletes them all; a negative or larger number fails the step.                 |
+
+A run deletes at most 500 deployments, oldest first, and lists at most 10 000 from GitHub. With more, it warns and the next run continues.
+
+## Troubleshooting
+
+| Message                                                                                 | Cause and fix                                                                                                                 |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `delete - <n> of <total> deployments failed to delete; see the job summary for details` | Some deletions failed. The job summary's Error column says why for each one — see the rows below.                             |
+| `Payload is not valid` (in the job summary)                                             | The deployment wasn't created by the deploy action, or its payload was changed. This action only deletes its own deployments. |
+| `Deleting Cloudflare deployment failed` (in the job summary)                            | Cloudflare refused the deletion. Check `cloudflare-api-token` has the **Cloudflare Pages: Edit** permission on the account.   |
+| `Updating GitHub deployment status failed` (in the job summary)                         | GitHub refused the status change. Check `github-token` has `deployments: write`.                                              |
+| `Deleting GitHub deployment failed` (in the job summary)                                | GitHub rejected the whole request, e.g. a rate limit, after the Cloudflare deployment was deleted. Re-run the workflow.       |
+| `Deleting the GitHub deployment or its comment failed: …` (in the job summary)          | The row succeeded — the status was set — but the deployment or its comment is still there. Delete it by hand, or re-run.      |
+| `delete - Deleting the oldest 500 of <n> deployments; re-run to delete the rest`        | A warning, not a failure: more than 500 deployments were due. Re-run until it stops.                                          |
+| `GitHub API listing <path> still had pages after 100; narrow the query`                 | More than 10 000 deployments reference the branch. Set `github-environment` to list fewer, or delete some by hand.            |
+
+Errors about inputs or the GitHub API read the same as the deploy action's — see its [Troubleshooting](../README.md#troubleshooting).
+
+## Examples
+
+A ready-to-use template lives at [.github/workflow-templates/delete.yml](../.github/workflow-templates/delete.yml); the [Quick start](#quick-start) above is the same workflow.
+
+## Upgrading
+
+Upgrading from an older version? Check [CHANGELOG.md](../CHANGELOG.md) for breaking changes.
+
+[pull request]: https://docs.github.com/en/pull-requests
+[Cloudflare Pages]: https://pages.cloudflare.com/
+[permissions]: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+[`GITHUB_TOKEN`]: https://docs.github.com/en/actions/security-guides/automatic-token-authentication
+[GitHub Deployment]: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment
+[job summary]: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary

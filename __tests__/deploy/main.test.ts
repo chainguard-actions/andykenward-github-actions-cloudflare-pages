@@ -1,0 +1,217 @@
+import {setOutput} from '@actions/core'
+import {it} from '@effect/vitest'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import {afterEach, beforeEach, describe, expect, vi} from 'vitest'
+
+import type {GetEnvironmentAndRefQuery} from '@/gql/graphql.js'
+import type {MockApi} from '@/tests/helpers/api.js'
+
+import {GitHubApi} from '@/common/github/api/client.js'
+import {addComment} from '@/common/github/comment.js'
+import {createGitHubDeployment} from '@/common/github/deployment/create.js'
+import {execFileAsync} from '@/common/utils.js'
+import {DeployLayer, run} from '@/deploy/main.js'
+import {GetEnvironmentAndRefDocument} from '@/gql/graphql.js'
+import {INPUT_KEY_WRANGLER_COMMENT_OUTPUT} from '@/input-keys'
+import RESPONSE_DEPLOYMENTS from '@/responses/api.cloudflare.com/pages/deployments/deployments.response.json' with {type: 'json'}
+import {MOCK_API_PATH_DEPLOYMENTS, setMockApi} from '@/tests/helpers/api.js'
+import {stubInputEnv} from '@/tests/helpers/inputs.js'
+
+vi.mock(import('@actions/core'))
+vi.mock(import('@/common/utils.js'))
+vi.mock(import('@/common/github/deployment/create.js'))
+vi.mock(import('@/common/github/comment.js'))
+
+const REF_ID = 'MDg6Q2hlY2tSdW4xMjM0NTY3ODk='
+
+/** `checkEnvironment`'s answer when the environment has not been created. */
+/** What GitHub returns for an environment that doesn't exist. */
+const ENVIRONMENT_MISSING: {
+  data: GetEnvironmentAndRefQuery
+  errors: {type: string; path: string[]; message: string}[]
+} = {
+  data: {repository: {environment: null, ref: {id: REF_ID}}},
+  errors: [
+    {
+      type: 'NOT_FOUND',
+      path: ['repository', 'environment'],
+      message:
+        'Could not resolve to an Environment with the name mock-github-environment.'
+    }
+  ]
+}
+
+describe('deploy', () => {
+  describe('main', () => {
+    let mockApi: MockApi
+
+    beforeEach(() => {
+      mockApi = setMockApi()
+    })
+
+    afterEach(async () => {
+      mockApi.mockAgent.assertNoPendingInterceptors()
+      await mockApi.mockAgent.close()
+      vi.mocked(execFileAsync).mockReset()
+    })
+
+    describe('run effect', () => {
+      /** Wrangler succeeds, Cloudflare reports the deployment, GitHub has the environment. */
+      const mockSuccessfulDeploy = () => {
+        vi.mocked(execFileAsync).mockResolvedValueOnce({
+          stdout: 'success',
+          stderr: ''
+        })
+        mockApi.interceptCloudflare(
+          MOCK_API_PATH_DEPLOYMENTS,
+          RESPONSE_DEPLOYMENTS,
+          200
+        )
+        mockApi.interceptGithub(
+          {
+            query: GetEnvironmentAndRefDocument,
+            variables: {
+              owner: 'andykenward',
+              repo: 'github-actions-cloudflare-pages',
+              environmentName: 'mock-github-environment',
+              qualifiedName: 'mock-github-head-ref'
+            }
+          },
+          {
+            data: {
+              repository: {
+                environment: {
+                  name: 'unlike-dev (Preview)',
+                  id: 'EN_kwDOJn0nrM5D_l8n'
+                },
+                ref: {id: REF_ID}
+              }
+            }
+          }
+        )
+      }
+
+      /** `it.live`: status polling sleeps on the real clock. */
+      it.live('success', () =>
+        Effect.gen(function* () {
+          expect.assertions(4)
+
+          mockSuccessfulDeploy()
+
+          yield* run
+
+          expect(setOutput).toHaveBeenCalledTimes(5)
+          // The pull request was resolved alongside wrangler, then commented on.
+          expect(vi.mocked(addComment).mock.calls[0]?.[0]).toBe(
+            'mock-pull-request-id'
+          )
+          // With wrangler's output, by default.
+          expect(vi.mocked(addComment).mock.calls[0]?.[2]).toBe('success')
+          expect(createGitHubDeployment).toHaveBeenCalledExactlyOnceWith({
+            // oxlint-disable-next-line typescript/no-unsafe-assignment
+            cloudflareDeployment: expect.objectContaining({
+              id: '206e215c-33b3-4ce4-adf4-7fc6c9b65483'
+            }),
+            commentId: 'mock-comment-id',
+            cloudflareAccountId: 'mock-cloudflare-account-id',
+            environment: {
+              name: 'unlike-dev (Preview)',
+              id: 'EN_kwDOJn0nrM5D_l8n',
+              refId: REF_ID
+            }
+          })
+        }).pipe(Effect.provide(DeployLayer))
+      )
+
+      it.live(
+        'comments without the wrangler output when wrangler-comment-output is false',
+        () => {
+          // Read when `DeployLayer` is built, so stub before providing it.
+          stubInputEnv(INPUT_KEY_WRANGLER_COMMENT_OUTPUT, 'false')
+
+          return Effect.gen(function* () {
+            expect.assertions(2)
+
+            mockSuccessfulDeploy()
+
+            yield* run
+
+            expect(vi.mocked(addComment).mock.calls[0]?.[0]).toBe(
+              'mock-pull-request-id'
+            )
+            expect(vi.mocked(addComment).mock.calls[0]?.[2]).toBeUndefined()
+          }).pipe(Effect.provide(DeployLayer))
+        }
+      )
+
+      it.live('stops wrangler when the GitHub Environment is missing', () => {
+        const {promise: wranglerStarted, resolve: startWrangler} =
+          Promise.withResolvers<void>()
+
+        let signal: AbortSignal | undefined
+        vi.mocked(execFileAsync).mockImplementationOnce(((
+          _file: string,
+          _args: ReadonlyArray<string>,
+          options: {signal: AbortSignal}
+        ) => {
+          signal = options.signal
+          startWrangler()
+          // A long upload: settles only when aborted.
+          return new Promise((_resolve, reject) => {
+            options.signal.addEventListener('abort', () =>
+              reject(new Error('aborted'))
+            )
+          })
+        }) as never)
+
+        /**
+         * Answers the environment check only once wrangler is running, so the
+         * failure always has a wrangler to stop. Provided inside `DeployLayer`,
+         * so it takes the place of the real client.
+         */
+        const gitHubApi = Layer.succeed(
+          GitHubApi,
+          GitHubApi.of({
+            request: () =>
+              Effect.promise(() => wranglerStarted).pipe(
+                Effect.as(ENVIRONMENT_MISSING as never)
+              )
+          })
+        )
+
+        return Effect.gen(function* () {
+          expect.assertions(3)
+
+          const error = yield* Effect.flip(run)
+
+          expect(error.message).toBe(
+            'GitHub Environment: Not created for mock-github-environment'
+          )
+          expect(signal?.aborted).toBe(true)
+          expect(addComment).not.toHaveBeenCalled()
+        }).pipe(Effect.provide(gitHubApi), Effect.provide(DeployLayer))
+      })
+
+      it.effect(
+        'fails for an unsupported event before starting wrangler',
+        () => {
+          // The context accepts any webhook event (and only reads the payload's
+          // repository), so the pull_request payload stands in for a release.
+          vi.stubEnv('GITHUB_EVENT_NAME', 'release')
+
+          return Effect.gen(function* () {
+            expect.assertions(2)
+
+            const error = yield* Effect.flip(run)
+
+            expect(error.message).toBe(
+              "GitHub Action event name 'release' not supported."
+            )
+            expect(execFileAsync).not.toHaveBeenCalled()
+          }).pipe(Effect.provide(DeployLayer))
+        }
+      )
+    })
+  })
+})

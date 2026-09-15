@@ -1,0 +1,273 @@
+import {info, setSecret, summary, warning} from '@actions/core'
+import {it} from '@effect/vitest'
+import * as Effect from 'effect/Effect'
+import * as Layer from 'effect/Layer'
+import {describe, expect, vi} from 'vitest'
+
+import type {GitHubDeployment} from '@/common/github/deployment/get.js'
+
+import {batchDelete} from '@/common/batch-delete.js'
+import {GitHubRestApi} from '@/common/github/api/paginate.js'
+import {DeleteLayer, run} from '@/delete/main.js'
+import {DEPLOYMENT} from '@/fixtures/github-deployment.js'
+import {INPUT_KEY_KEEP_LATEST} from '@/input-keys'
+import {stubInputEnv} from '@/tests/helpers/inputs.js'
+
+vi.mock(import('@actions/core'))
+vi.mock(import('@/common/batch-delete.js'))
+
+const ROW = {
+  deploymentId: DEPLOYMENT.node_id,
+  environment: DEPLOYMENT.environment
+}
+
+const withId = (node_id: string): GitHubDeployment => ({
+  ...DEPLOYMENT,
+  node_id
+})
+
+/**
+ * A `GitHubRestApi` that lists `deployments`. Provided inside `DeleteLayer`, so
+ * it takes the place of the real client for `run`.
+ */
+const listing = (deployments: Array<GitHubDeployment>) =>
+  Layer.succeed(
+    GitHubRestApi,
+    GitHubRestApi.of({
+      paginate: () => Effect.succeed(deployments)
+    })
+  )
+
+describe('delete', () => {
+  describe('run effect', () => {
+    it.effect('succeeds when there are no deployments', () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        yield* run
+
+        expect(info).toHaveBeenCalledWith('delete - No deployments to delete')
+      }).pipe(Effect.provide(listing([])), Effect.provide(DeleteLayer))
+    )
+
+    it.effect('builds CommonInputs once for every service that needs it', () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        yield* run
+
+        // One `setSecret` per token: a second build would register them again.
+        expect(setSecret).toHaveBeenCalledTimes(2)
+      }).pipe(Effect.provide(listing([])), Effect.provide(DeleteLayer))
+    )
+
+    it.effect('succeeds when every deployment is deleted', () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        vi.mocked(batchDelete).mockReturnValue(
+          Effect.succeed({...ROW, success: true})
+        )
+
+        yield* run
+
+        expect(batchDelete).toHaveBeenCalledTimes(2)
+      }).pipe(
+        Effect.provide(listing([DEPLOYMENT, DEPLOYMENT])),
+        Effect.provide(DeleteLayer)
+      )
+    )
+
+    it.effect('fails after writing the summary when any deployment fails', () =>
+      Effect.gen(function* () {
+        expect.assertions(3)
+
+        vi.mocked(batchDelete)
+          .mockReturnValueOnce(Effect.succeed({...ROW, success: true}))
+          .mockReturnValueOnce(
+            Effect.succeed({...ROW, success: false, error: 'boom'})
+          )
+
+        const error = yield* Effect.flip(run)
+
+        expect(error.message).toBe(
+          'delete - 1 of 2 deployments failed to delete; see the job summary for details'
+        )
+        // Both deletions are still attempted, and the summary still written.
+        expect(batchDelete).toHaveBeenCalledTimes(2)
+        expect(summary.write).toHaveBeenCalledTimes(1)
+      }).pipe(
+        Effect.provide(listing([DEPLOYMENT, DEPLOYMENT])),
+        Effect.provide(DeleteLayer)
+      )
+    )
+
+    it.effect("shows a successful row's warning in the Error column", () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        vi.mocked(batchDelete).mockReturnValue(
+          Effect.succeed({...ROW, success: true, warning: 'comment kept'})
+        )
+
+        yield* run
+
+        expect(vi.mocked(summary.addTable).mock.calls[0]?.[0][1]?.at(-1)).toBe(
+          'comment kept'
+        )
+      }).pipe(
+        Effect.provide(listing([DEPLOYMENT])),
+        Effect.provide(DeleteLayer)
+      )
+    )
+
+    it.effect('escapes the values it writes to the summary table', () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        vi.mocked(batchDelete).mockReturnValue(
+          Effect.succeed({
+            deploymentId: 'id',
+            environment: '<b>env</b>',
+            environmentUrl: `https://example.com/'><script>`,
+            commentId: '<i>',
+            success: false,
+            error: '<img src=x onerror=alert(1)>'
+          })
+        )
+
+        yield* Effect.flip(run)
+
+        expect(vi.mocked(summary.addTable).mock.calls[0]?.[0][1]).toStrictEqual(
+          [
+            'id',
+            '❌',
+            '&lt;b&gt;env&lt;/b&gt;',
+            `<a href='https://example.com/&#39;&gt;&lt;script&gt;'><code>https://example.com/&#39;&gt;&lt;script&gt;</code></a>`,
+            '&lt;i&gt;',
+            '&lt;img src=x onerror=alert(1)&gt;'
+          ]
+        )
+      }).pipe(
+        Effect.provide(listing([DEPLOYMENT])),
+        Effect.provide(DeleteLayer)
+      )
+    )
+
+    it.effect('keeps the newest keep-latest deployments', () => {
+      stubInputEnv(INPUT_KEY_KEEP_LATEST, '1')
+
+      return Effect.gen(function* () {
+        expect.assertions(2)
+
+        vi.mocked(batchDelete).mockReturnValue(
+          Effect.succeed({...ROW, success: true})
+        )
+
+        yield* run
+
+        expect(info).toHaveBeenCalledWith(
+          'delete - Keeping latest 1 deployments'
+        )
+        // Listed newest first, so the first is kept.
+        expect(
+          vi.mocked(batchDelete).mock.calls.map(([{node_id}]) => node_id)
+        ).toStrictEqual(['DE_2', 'DE_3'])
+      }).pipe(
+        Effect.provide(
+          listing([withId('DE_1'), withId('DE_2'), withId('DE_3')])
+        ),
+        Effect.provide(DeleteLayer)
+      )
+    })
+
+    it.effect('deletes at most 500 of the oldest, and says so', () =>
+      Effect.gen(function* () {
+        expect.assertions(3)
+
+        vi.mocked(batchDelete).mockReturnValue(
+          Effect.succeed({...ROW, success: true})
+        )
+
+        yield* run
+
+        expect(warning).toHaveBeenCalledWith(
+          'delete - Deleting the oldest 500 of 501 deployments; re-run to delete the rest'
+        )
+        const deleted = vi
+          .mocked(batchDelete)
+          .mock.calls.map(([{node_id}]) => node_id)
+        expect(deleted).toHaveLength(500)
+        // Listed newest first: the newest, DE_0, is the one left over.
+        expect(deleted).not.toContain('DE_0')
+      }).pipe(
+        Effect.provide(
+          listing(
+            Array.from({length: 501}, (_unused, index) => withId(`DE_${index}`))
+          )
+        ),
+        Effect.provide(DeleteLayer)
+      )
+    )
+
+    it.effect(
+      'deletes nothing when keep-latest covers every deployment',
+      () => {
+        stubInputEnv(INPUT_KEY_KEEP_LATEST, '2')
+
+        return Effect.gen(function* () {
+          expect.assertions(2)
+
+          yield* run
+
+          expect(batchDelete).not.toHaveBeenCalled()
+          expect(summary.addTable).toHaveBeenCalledWith([
+            ['No deployments to delete']
+          ])
+        }).pipe(
+          Effect.provide(listing([withId('DE_1'), withId('DE_2')])),
+          Effect.provide(DeleteLayer)
+        )
+      }
+    )
+
+    it.effect('fails when the job summary cannot be written', () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        vi.mocked(summary.write).mockRejectedValueOnce(
+          new Error('EACCES: permission denied')
+        )
+
+        const error = yield* Effect.flip(run)
+
+        expect(error.message).toBe(
+          'delete - Error deleting deployments: EACCES: permission denied'
+        )
+      }).pipe(Effect.provide(listing([])), Effect.provide(DeleteLayer))
+    )
+
+    it.effect('does not link a non-http environment url', () =>
+      Effect.gen(function* () {
+        expect.assertions(1)
+
+        vi.mocked(batchDelete).mockReturnValue(
+          Effect.succeed({
+            ...ROW,
+            environmentUrl: 'javascript:alert(1)',
+            success: true
+          })
+        )
+
+        yield* run
+
+        expect(vi.mocked(summary.addTable).mock.calls[0]?.[0][1]?.[3]).toBe(
+          '<code>javascript:alert(1)</code>'
+        )
+      }).pipe(
+        Effect.provide(listing([DEPLOYMENT])),
+        Effect.provide(DeleteLayer)
+      )
+    )
+  })
+})

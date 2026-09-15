@@ -1,0 +1,48 @@
+import {vi} from 'vitest'
+
+import type {WebhookEventName} from '@/types/github/workflow-events.js'
+
+const getPayload = (eventName: WebhookEventName): string => {
+  switch (eventName) {
+    case 'pull_request': {
+      return '__generated__/payloads/api.github.com/pull_request/opened.payload.json'
+    }
+    case 'workflow_dispatch': {
+      return '__generated__/payloads/api.github.com/workflow_dispatch/payload.json'
+    }
+    case 'workflow_run': {
+      return '__generated__/payloads/api.github.com/workflow_run/completed.with-pull-requests.payload.json'
+    }
+    default: {
+      throw new Error('No payload to test for')
+    }
+  }
+}
+
+const TEST_ENV_VARS = (
+  eventName: WebhookEventName = 'pull_request'
+): NodeJS.ProcessEnv => ({
+  GITHUB_HEAD_REF: 'mock-github-head-ref',
+  GITHUB_REF: 'refs/heads/mock-github-ref',
+  GITHUB_REF_NAME: 'mock-github-ref-name',
+  GITHUB_SHA: 'ffac537e6cbbf934b08745a378932722df287a53',
+  GITHUB_EVENT_NAME: eventName,
+  GITHUB_REPOSITORY: 'andykenward/github-actions-cloudflare-pages',
+  GITHUB_REPOSITORY_ID: 'R_kgDOJn0nrA',
+  GITHUB_EVENT_PATH: getPayload(eventName),
+  GITHUB_GRAPHQL_URL: 'https://api.github.com/graphql',
+  GITHUB_API_URL: 'https://api.github.com'
+})
+
+export const stubTestEnvVars = (
+  eventName: WebhookEventName = 'pull_request'
+) => {
+  const VARS = TEST_ENV_VARS(eventName)
+  for (const key in VARS) {
+    const value = VARS[key]
+    if (!value) {
+      throw new Error(`Missing TEST_ENV_VARS value for key: ${key}`)
+    }
+    vi.stubEnv(key, value)
+  }
+}

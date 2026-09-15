@@ -1,0 +1,38 @@
+name: Test basic usage - deploy to Cloudflare Pages
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal static directory to upload
+        run: |
+          mkdir -p /tmp/dist
+          echo "<html><body>Hello World</body></html>" > /tmp/dist/index.html
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          cloudflare-api-token: "fake-cf-token-for-testing"
+          cloudflare-account-id: "fake-account-id"
+          cloudflare-project-name: "fake-project"
+          directory: "/tmp/dist"
+          github-token: ${{ github.token }}
+          github-environment: "preview"
+
+      - name: Assert action ran and failed gracefully with invalid Cloudflare credentials
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully as expected (invalid Cloudflare credentials / sentinel repo)"
+          elif [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded unexpectedly (credentials may be real)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

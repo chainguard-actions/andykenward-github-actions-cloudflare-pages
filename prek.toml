@@ -1,0 +1,30 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+# Anchored: an unanchored `.changeset` or `dist` also matches
+# .github/workflows/changeset.yml and check-dist.yml.
+exclude = '^(__generated__|\.changeset|dist|example/dist|repos|schema|\.agents|\.claude)/|^pnpm-lock\.yaml$|^\.devcontainer/devcontainer-lock\.json$'
+
+# prek's native Rust ports of the pre-commit-hooks hooks: no clone and no
+# Python environment, so the hooks run on a Node-only machine.
+# https://prek.j178.dev/builtin/
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-yaml" },
+  { id = "check-added-large-files" },
+  { id = "check-merge-conflict" },
+  # The builtin defaults to `types = ["json5"]`, and `types` is ANDed with
+  # `types_or` — clear it so .json files (tsconfig, devcontainer and others
+  # allow comments) are parsed too, as the check-json5 repo hook did.
+  { id = "check-json5", types = [], types_or = ["json", "json5"] }
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "oxc-format-and-lint", name = "oxfmt + oxlint", entry = "bash ./.claude/scripts/pre-commit-oxc.sh", language = "system", pass_filenames = true, files = '\.(js|jsx|cjs|mjs|ts|tsx|cts|mts|json|md|markdown|graphql|gql|yml|yaml)$' }
+]

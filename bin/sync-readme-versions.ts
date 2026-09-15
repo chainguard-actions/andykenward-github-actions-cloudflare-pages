@@ -1,0 +1,129 @@
+import assert from 'node:assert'
+import {execSync} from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import {pathToFileURL} from 'node:url'
+
+import type {TypedDocumentString} from '@/gql/graphql.js'
+
+import {GetLatestReleaseDocument} from '@/gql/graphql.js'
+
+import packageJson from '../package.json' with {type: 'json'}
+
+const GITHUB_GRAPHQL_API = 'https://api.github.com/graphql'
+/** A full commit SHA is 40 hex characters; the short form shown in logs is 7. */
+const SHA_LENGTH = 40
+const SHA_SHORT_LENGTH = 7
+const TOKEN = process.env['GITHUB_TOKEN']
+
+/**
+ * Replaces all `andykenward/github-actions-cloudflare-pages` action version
+ * references in a file's content with the given SHA and version.
+ *
+ * Handles both tag-only (`@v3.0.0`) and SHA+tag (`@abc123 #v3.0.0`) forms, for
+ * the main action and its /delete sub-action.
+ */
+export function replaceVersionReferences(
+  content: string,
+  sha: string,
+  version: string
+): string {
+  return content
+    .replaceAll(
+      /(andykenward\/github-actions-cloudflare-pages\/delete)@\S+(?:\s+#v[\d.]+)?/g,
+      `$1@${sha} #v${version}`
+    )
+    .replaceAll(
+      /(andykenward\/github-actions-cloudflare-pages)@\S+(?:\s+#v[\d.]+)?/g,
+      `$1@${sha} #v${version}`
+    )
+}
+
+const request = async <TResult, TVariables>(
+  query: TypedDocumentString<TResult, TVariables>,
+  variables: TVariables
+): Promise<TResult> => {
+  const response = await fetch(GITHUB_GRAPHQL_API, {
+    method: 'POST',
+    headers: {
+      authorization: `bearer ${TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({query, variables})
+  })
+  assert.ok(response.ok, `GitHub API request failed: ${response.status}`)
+  const {data, errors} = (await response.json()) as {
+    data: TResult
+    errors?: unknown
+  }
+  assert.ok(!errors, `GitHub API errors: ${JSON.stringify(errors)}`)
+  return data
+}
+
+export async function getLatestRelease(): Promise<{
+  sha: string
+  version: string
+}> {
+  const data = await request(GetLatestReleaseDocument, {
+    owner: 'andykenward',
+    repo: 'github-actions-cloudflare-pages'
+  })
+
+  assert.ok(data.repository, 'No repository in response')
+  assert.ok(data.repository.latestRelease, 'No latestRelease in response')
+  const {tagName, tagCommit} = data.repository.latestRelease
+  assert.ok(tagName, 'No tagName in latest release')
+  assert.ok(tagCommit, 'No tagCommit in latest release')
+  assert.ok(
+    tagCommit.oid.length === SHA_LENGTH,
+    `Expected full ${SHA_LENGTH}-char SHA, got: ${tagCommit.oid}`
+  )
+
+  return {sha: tagCommit.oid, version: tagName.replace(/^v/, '')}
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  let sha: string
+  let version: string
+
+  if (
+    process.env['GITHUB_ACTIONS'] === 'true' &&
+    process.env['GITHUB_EVENT_NAME'] === 'push'
+  ) {
+    // Tag push — HEAD is the freshly tagged commit, so use local git and
+    // package.json to avoid an extra API call.
+    version = packageJson.version
+    assert.ok(version, 'Unable to find version in package.json')
+    sha = execSync('git rev-parse HEAD').toString().trim()
+    assert.ok(
+      sha.length === SHA_LENGTH,
+      `Expected full ${SHA_LENGTH}-char SHA, got: ${sha}`
+    )
+  } else {
+    // workflow_dispatch or local run — HEAD may be ahead of the latest release
+    // tag, so fetch the correct SHA and version from GitHub.
+    ;({sha, version} = await getLatestRelease())
+  }
+
+  process.stdout.write(
+    `Syncing: ${version} @ ${sha.slice(0, SHA_SHORT_LENGTH)}\n`
+  )
+
+  const root = path.resolve(import.meta.dirname, '..')
+  const files = [
+    path.join(root, 'README.md'),
+    path.join(root, 'delete', 'README.md'),
+    path.join(root, '.github', 'workflow-templates', 'deploy.yml'),
+    path.join(root, '.github', 'workflow-templates', 'delete.yml'),
+    path.join(root, 'skills', 'github-actions-cloudflare-pages', 'SKILL.md')
+  ]
+
+  for (const filePath of files) {
+    const original = fs.readFileSync(filePath, 'utf8')
+    const updated = replaceVersionReferences(original, sha, version)
+    if (updated !== original) {
+      fs.writeFileSync(filePath, updated)
+      process.stdout.write(`  Updated ${path.relative(root, filePath)}\n`)
+    }
+  }
+}

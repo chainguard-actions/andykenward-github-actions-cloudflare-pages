@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "eamodio.gitlens",
+    "github.vscode-github-actions",
+    "GraphQL.vscode-graphql-syntax",
+    "GraphQL.vscode-graphql",
+    "oxc.oxc-vscode",
+    "vitest.explorer",
+    "webpro.vscode-knip"
+  ]
+}
