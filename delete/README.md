@@ -97,3 +97,7 @@ Upgrading from an older version? Check [CHANGELOG.md](../CHANGELOG.md) for break
 [`GITHUB_TOKEN`]: https://docs.github.com/en/actions/security-guides/automatic-token-authentication
 [GitHub Deployment]: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment
 [job summary]: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
+
+## Privacy
+
+This Action contacts Chainguard's licensing server to verify authorization. Connection metadata (IP address, GitHub repository identifier, timestamp, and any metadata encoded in the auth token) is transmitted to Chainguard, Inc. even if authorization is denied in accordance with our [Privacy Notice](https://www.chainguard.dev/legal/privacy-notice)
