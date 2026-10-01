@@ -7,32 +7,32 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create build output directory
+      - name: Create build directory
         run: |
           mkdir -p /tmp/test-dist
-          echo "<html><body>Test</body></html>" > /tmp/test-dist/index.html
+          echo "<html><body>Hello</body></html>" > /tmp/test-dist/index.html
 
       - id: action
         uses: .
         continue-on-error: true
         with:
-          cloudflare-api-token: fake-token-for-testing
+          cloudflare-api-token: fake-token
           cloudflare-account-id: fake-account-id
           cloudflare-project-name: fake-project
           directory: /tmp/test-dist
           github-token: ${{ github.token }}
           github-environment: preview
-          wrangler-version: '3.99.0'
+          wrangler-version: "3.99.0"
 
-      - name: Assert action ran (expected to fail without real Cloudflare credentials)
+      - name: Assert action ran with wrangler-version input
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           if [ "$OUTCOME" = "success" ]; then
-            echo "PASS: action succeeded unexpectedly (real credentials present)"
+            echo "PASS: action succeeded"
           elif [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action failed gracefully as expected without real Cloudflare credentials"
+            echo "PASS: action failed gracefully (expected with fake credentials/sentinel repo)"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1
