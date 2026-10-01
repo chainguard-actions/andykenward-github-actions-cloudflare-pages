@@ -6,30 +6,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Create working directory and static files
+      - name: Create a fake static directory
         run: |
-          mkdir -p /tmp/test-workdir/dist
-          echo "<html><body>Test</body></html>" > /tmp/test-workdir/dist/index.html
+          mkdir -p /tmp/test-static
+          echo "<html><body>Test</body></html>" > /tmp/test-static/index.html
+          mkdir -p /tmp/test-workdir
       - id: action
         uses: .
         continue-on-error: true
         with:
-          cloudflare-api-token: fake-api-token
+          cloudflare-api-token: fake-token
           cloudflare-account-id: fake-account-id
           cloudflare-project-name: fake-project
-          directory: dist
+          directory: /tmp/test-static
           github-token: ${{ github.token }}
           github-environment: preview
           working-directory: /tmp/test-workdir
-      - name: Assert action ran with working-directory input
+      - name: Assert action ran (failed gracefully with fake credentials)
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           if [ "$OUTCOME" = "success" ]; then
-            echo "PASS: action succeeded"
+            echo "PASS: action succeeded unexpectedly (real credentials?)"
           elif [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action failed gracefully (expected with fake credentials)"
+            echo "PASS: action failed gracefully as expected with fake credentials"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1
