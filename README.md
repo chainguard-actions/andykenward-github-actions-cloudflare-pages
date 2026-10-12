@@ -13,6 +13,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v3.4.0 | [`v3.4.0`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.4.0) | [`1f45924`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/1f45924c4dd0c6d746a7edfaa4e1dea8958806a6) |
 | v3.5.0 | [`v3.5.0`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.5.0) | [`46d86e1`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/46d86e1caa6b86365a41d335db65a6936a1beb39) |
 | v3.6.0 | [`v3.6.0`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.6.0) | [`6ef4e36`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/6ef4e36d90efd24526eb81a38ae463c1169905ef) |
+| v3.6.1 | [`v3.6.1`](https://github.com/chainguard-actions/andykenward-github-actions-cloudflare-pages/tree/v3.6.1) | [`f3b833c`](https://github.com/andykenward/github-actions-cloudflare-pages/commit/f3b833c8f206f03c6ce74daea7a6fa8ae5c279ff) |
 
 ## Privacy
 
