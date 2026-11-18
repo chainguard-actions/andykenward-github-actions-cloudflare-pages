@@ -4,8 +4,13 @@
   "version": "v3.5.0",
   "commit_sha": "46d86e1caa6b86365a41d335db65a6936a1beb39",
   "url": "https://github.com/andykenward/github-actions-cloudflare-pages",
-  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "policy_sha": "374911c4be584df24e6da57af2d990570ef0f859",
   "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
   "test_agent_version": "2",
-  "harden_agent_version": "2"
+  "harden_agent_version": "2",
+  "dist_artifact": {
+    "gcs_uri": "gs://patch-actions-node-artifacts/dist-artifacts/andykenward/github-actions-cloudflare-pages/v3.5.0/sha256-fc4014cf1f605ce63f17ebab56d9528749513ad307d7ddb2a9288f7c40cae6e1.tar.gz",
+    "sha256": "fc4014cf1f605ce63f17ebab56d9528749513ad307d7ddb2a9288f7c40cae6e1",
+    "size_bytes": 1020325
+  }
 }
